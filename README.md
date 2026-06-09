@@ -47,6 +47,22 @@ arXiv ids need no token. To resolve **bibcodes/DOIs**, get a free key at
 export ADS_DEV_KEY="your-token"     # add to ~/.zshrc
 ```
 
+## Use as an agent skill (Claude Code & Codex)
+
+This repo doubles as an [Agent Skill](https://agentskills.io) (`SKILL.md` + `adsread.py`), so a
+coding/research agent can read papers on demand. One `SKILL.md` serves both agents. Install (one
+source, symlinked into each agent's skills dir):
+
+```bash
+git clone https://github.com/zh-zuo/adsread.git
+ln -s "$PWD/adsread"            ~/.agents/skills/adsread     # Codex, Cursor, OpenCode, …
+ln -s ../../.agents/skills/adsread ~/.claude/skills/adsread  # Claude Code
+ln -s ../../.agents/skills/adsread ~/.codex/skills/adsread   # Codex (explicit)
+```
+
+Then in a chat — *"read arXiv 2511.20639"*, *"summarize this bibcode"*, *"what does <paper> say"* —
+the agent invokes `adsread` and pulls the full text into context.
+
 ## Notes / limits
 
 - **PDF-only** submissions have no `.tex` → use `-f md` (or there may be no HTML either).
