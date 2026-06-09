@@ -4,6 +4,21 @@ Fetch a paper's **TeX** or **Markdown** from arXiv, resolving NASA-ADS bibcodes 
 the astronomer's answer to Hugging Face's `hf papers read`. Dumps clean paper text into an
 agent's context (stdout by default), so a coding/research agent can actually *read* the paper.
 
+## Quickstart
+
+```bash
+git clone https://github.com/zh-zuo/adsread.git
+cd adsread
+pip install -r requirements.txt        # requests + beautifulsoup4
+# Markdown output also needs pandoc:   brew install pandoc   /   apt install pandoc
+
+python3 adsread.py 2511.20639          # arXiv id  -> full paper as Markdown (stdout)
+python3 adsread.py 2511.20639 -f tex   # ...or raw LaTeX source
+```
+
+No token or config for arXiv ids. (ADS **bibcodes/DOIs** additionally need a free
+[ADS key](https://ui.adsabs.harvard.edu/user/settings/token) in `ADS_DEV_KEY` — see [Install](#install).)
+
 **Design:** ADS is the resolver/metadata layer, arXiv is the content source.
 `bibcode → (ADS API) → arXiv id → fetch`. arXiv ids and DOIs work too.
 
