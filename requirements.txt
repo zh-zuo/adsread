@@ -1,0 +1,3 @@
+requests
+beautifulsoup4
+# also needs `pandoc` on PATH (not a pip package) for `-f md`
