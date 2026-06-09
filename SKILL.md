@@ -35,6 +35,11 @@ python3 ~/.agents/skills/adsread/adsread.py 2025ApJ...991..157Z
 
 # Write to a file instead of stdout (useful for long papers)
 python3 ~/.agents/skills/adsread/adsread.py 2511.20639 -o /tmp/paper.md
+
+# Also DOWNLOAD figures, then VIEW the images yourself to interpret plots/diagrams
+python3 ~/.agents/skills/adsread/adsread.py 2511.20639 -o /tmp/paper.md --figures
+#   -> figures land in /tmp/paper_figures/; open those PNGs with your image-reading tool
+#      when the user asks about a figure, or when a plot/diagram is needed to answer.
 ```
 
 If `adsread` is on the user's PATH, `adsread <id>` works too.

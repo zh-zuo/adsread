@@ -6,11 +6,12 @@ layer, arXiv is the content source. Designed to dump clean paper text into an ag
 context (stdout by default).
 
 Usage:
-  adsread <arxiv-id | ADS-bibcode | DOI> [--format md|tex] [--out FILE]
+  adsread <arxiv-id | ADS-bibcode | DOI> [--format md|tex] [--out FILE] [--figures]
 
 Examples:
   adsread 2511.20639                      # arXiv id -> markdown on stdout
   adsread 2511.20639 -f tex -o paper.tex  # raw LaTeX source
+  adsread 2511.20639 -o p.md --figures    # markdown + figures downloaded next to it
   adsread 2025ApJ...991..157Z             # ADS bibcode (needs ADS_DEV_KEY)
 
 Env:
@@ -18,6 +19,7 @@ Env:
                                 Free token: https://ui.adsabs.harvard.edu/user/settings/token
 """
 import sys, os, re, io, gzip, tarfile, subprocess, argparse
+from urllib.parse import urljoin
 import requests
 
 UA = {"User-Agent": "adsread/0.1 (https://github.com/zh-zuo)"}
@@ -104,7 +106,30 @@ def fetch_tex(arxiv_id):
     return inline(texts[main])
 
 
-def fetch_md(arxiv_id):
+def _download_figures(art, base_url, figdir):
+    """Download every <img> into figdir and rewrite its src to a local relative path."""
+    os.makedirs(figdir, exist_ok=True)
+    prefix, n, seen = os.path.basename(figdir.rstrip('/')), 0, set()
+    for img in art.find_all('img'):
+        src = img.get('src')
+        if not src or src.startswith('data:'):
+            continue
+        fn = os.path.basename(src.split('?')[0]) or f"fig{n}"
+        while fn in seen:                                 # avoid name collisions
+            root, ext = os.path.splitext(fn); fn = f"{root}_{n}{ext}"
+        try:
+            ir = requests.get(urljoin(base_url, src), headers=UA, timeout=60)
+        except requests.RequestException:
+            continue
+        if ir.status_code == 200 and ir.content:
+            with open(os.path.join(figdir, fn), 'wb') as f:
+                f.write(ir.content)
+            img['src'] = f"{prefix}/{fn}"                 # Markdown will point at the local file
+            seen.add(fn); n += 1
+    sys.stderr.write(f"[adsread] downloaded {n} figure(s) -> {figdir}/\n")
+
+
+def fetch_md(arxiv_id, figdir=None):
     for url in (f"https://arxiv.org/html/{arxiv_id}", f"https://ar5iv.org/html/{arxiv_id}"):
         try:
             r = requests.get(url, headers=UA, timeout=60, allow_redirects=True)
@@ -112,12 +137,17 @@ def fetch_md(arxiv_id):
             continue
         if r.status_code != 200 or '<html' not in r.text.lower():
             continue
-        html = r.text
+        base_url, html = r.url, r.text
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, 'html.parser')
             art = soup.find('article') or soup.find('div', class_=re.compile('ltx_page_main|ltx_document'))
             if art:
+                if figdir:
+                    _download_figures(art, base_url, figdir)
+                for img in art.find_all('img'):   # drop inline base64 (data:) images -> short placeholder
+                    if img.get('src', '').startswith('data:'):
+                        img.replace_with(f"[figure: {img.get('alt', '').strip() or 'inline image'}]")
                 for tag in art.find_all(True):   # strip LaTeXML class/id/style noise pandoc would keep
                     for a in [x for x in list(tag.attrs) if x in ('class', 'id', 'style') or x.startswith('data-')]:
                         del tag[a]
@@ -132,8 +162,10 @@ def fetch_md(arxiv_id):
              "--wrap=none"],
             input=html.encode(), capture_output=True)
         if p.returncode == 0 and p.stdout.strip():
-            sys.stderr.write(f"[adsread] markdown via {url.split('//')[1].split('/')[0]}\n")
-            return p.stdout.decode()
+            md = re.sub(r'!\[([^\]]*)\]\(data:[^)]*\)',     # drop inline base64 (data:) image blobs
+                        lambda m: f"[figure: {(m.group(1) or 'inline image').strip()}]", p.stdout.decode())
+            sys.stderr.write(f"[adsread] markdown via {base_url.split('//')[1].split('/')[0]}\n")
+            return md
     sys.exit(f"[adsread] no HTML rendering for {arxiv_id} (arxiv.org/html or ar5iv). Try -f tex.")
 
 
@@ -143,11 +175,21 @@ def main():
     ap.add_argument("identifier", help="arXiv id, ADS bibcode, or DOI")
     ap.add_argument("-f", "--format", choices=["md", "tex"], default="md")
     ap.add_argument("-o", "--out", help="write to FILE (default: stdout)")
+    ap.add_argument("-F", "--figures", action="store_true",
+                    help="(md only) download the paper's figures and point the Markdown at the local files")
     args = ap.parse_args()
 
     arxiv_id = resolve_arxiv(args.identifier)
     sys.stderr.write(f"[adsread] {args.identifier} -> arXiv:{arxiv_id} ({args.format})\n")
-    out = fetch_tex(arxiv_id) if args.format == "tex" else fetch_md(arxiv_id)
+    if args.format == "tex":
+        if args.figures:
+            sys.stderr.write("[adsread] --figures applies to -f md; ignoring.\n")
+        out = fetch_tex(arxiv_id)
+    else:
+        figdir = None
+        if args.figures:
+            figdir = (os.path.splitext(args.out)[0] + "_figures") if args.out else f"{arxiv_id}_figures"
+        out = fetch_md(arxiv_id, figdir=figdir)
     if args.out:
         with open(args.out, "w") as f:
             f.write(out)

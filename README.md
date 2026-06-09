@@ -27,6 +27,7 @@ No token or config for arXiv ids. (ADS **bibcodes/DOIs** additionally need a fre
 ```bash
 adsread 2511.20639                       # arXiv id  -> Markdown on stdout
 adsread 2511.20639 -f tex -o paper.tex   # raw LaTeX source (e-print tarball)
+adsread 2511.20639 -o p.md --figures     # Markdown + figures downloaded to p_figures/
 adsread 2025ApJ...991..157Z              # ADS bibcode (needs ADS_DEV_KEY)
 adsread 10.3847/1538-4357/ade8f0         # DOI        (needs ADS_DEV_KEY)
 ```
@@ -36,6 +37,7 @@ adsread 10.3847/1538-4357/ade8f0         # DOI        (needs ADS_DEV_KEY)
 - `-f md` (default) — `arxiv.org/html` → fallback `ar5iv.org` → pandoc, LaTeXML noise stripped, math kept as `$…$`.
 - `-f tex` — downloads `arxiv.org/e-print/<id>`, extracts the tarball, inlines `\input`/`\include`.
 - `-o FILE` — write to file instead of stdout.
+- `--figures` — (md only) download the paper's figures alongside the output and repoint the Markdown links to the local files — so a vision-capable agent can view them.
 
 ## Install
 
@@ -114,7 +116,7 @@ Not using an Agent-Skills agent? Skip this entirely — just tell your agent to 
 
 - **PDF-only** submissions have no `.tex` → use `-f md` (or there may be no HTML either).
 - Complex **tables** fall back to inline HTML in the markdown (still readable).
-- Figures appear as image links with arXiv-relative paths (not downloaded).
+- Figures: image links only by default; **`--figures`** downloads them locally and repoints the links. Inline base64 (`data:`) figures become short `[figure: …]` placeholders.
 
 ## Possible next steps
 
